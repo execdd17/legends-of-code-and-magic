@@ -79,9 +79,20 @@ class CardManager(cards: List[Card]) {
     val allAvailableCards = mySummonedCards ::: mySummonsReadyToCharge.toList
     val enemyGuardCards = getEnemyGuardCards
 
-    // TODO: don't make every single creature attack the first guard card
+    // TODO: handle multiple enemy guard cards on their side
     if (enemyGuardCards.nonEmpty) {
-      allAvailableCards.map(card => CardManager.compileCreatureToCreatureAttack(card, enemyGuardCards.head)).mkString(";")
+      val (guardKillers, weaklings) = allAvailableCards.partition(_.attack >= enemyGuardCards.head.defense)
+      if (guardKillers.isEmpty) {
+        // have the weaklings group up to hopefully kill guard
+        weaklings.map(card => CardManager.compileCreatureToCreatureAttack(card, enemyGuardCards.head)).mkString(";")
+      } else {
+        // take the first creature who can kill the guard, and use everyone else to attack the face
+        List(
+          List(CardManager.compileCreatureToCreatureAttack(guardKillers.head, enemyGuardCards.head)),
+          guardKillers.tail.map(card => CardManager.compileCreatureToFaceAttack(card)),
+          weaklings.map(card => CardManager.compileCreatureToFaceAttack(card))
+        ).flatten.mkString(";")
+      }
     } else {
       allAvailableCards.map(card => CardManager.compileCreatureToFaceAttack(card)).mkString(";")
     }

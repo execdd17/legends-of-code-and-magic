@@ -10,8 +10,10 @@ class CardManagerTest
   var cardInMyHand1:Card = _
   var cardInMyHand2:Card = _
   var cardInMyHand3:Card = _
+  var cardInMyHandWithCharge:Card = _
 
   var cardOnMySide1:Card = _
+  var cardOnMySide2:Card = _
 
   var cardOnTheirSideWithGuard:Card = _
 
@@ -29,11 +31,17 @@ class CardManagerTest
 
     cardInMyHand2 = cardInMyHand1.copy(instanceid = 2, cost = 4)
     cardInMyHand3 = cardInMyHand1.copy(instanceid = 3, cost = 5)
+    cardInMyHandWithCharge = cardInMyHand1.copy(
+      instanceid = 3,
+      location = Card.IN_MY_HAND,
+      abilities = CardAbilities("C")
+    )
 
     cardOnMySide1 = cardInMyHand1.copy(instanceid = 4, location = Card.ON_MY_SIDE)
+    cardOnMySide2 = cardInMyHand1.copy(instanceid = 5, location = Card.ON_MY_SIDE)
 
     cardOnTheirSideWithGuard = cardInMyHand1.copy(
-      instanceid = 5,
+      instanceid = 6,
       location = Card.ON_THEIR_SIDE,
       abilities = CardAbilities("G")
     )
@@ -71,6 +79,14 @@ class CardManagerTest
   }
 
   it should "utilize a summon immediately that has the Charge ability" in {
-    pending
+    val cardManager = new CardManager(List(cardInMyHandWithCharge))
+    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    actions shouldEqual s"SUMMON ${cardInMyHandWithCharge.instanceid};ATTACK ${cardInMyHandWithCharge.instanceid} -1"
+  }
+
+  it should "continue to attack the face after the taunt creature has been destroyed" in {
+    val cardManager = new CardManager(List(cardOnMySide1, cardOnMySide2, cardOnTheirSideWithGuard))
+    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    actions shouldEqual s"ATTACK ${cardOnMySide1.instanceid} ${cardOnTheirSideWithGuard.instanceid};ATTACK ${cardOnMySide2.instanceid} -1"
   }
 }
