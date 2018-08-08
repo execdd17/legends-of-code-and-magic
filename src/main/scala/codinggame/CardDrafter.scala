@@ -8,7 +8,7 @@ import scala.collection.mutable.ListBuffer
 object DraftingStratagem {
   object Priority extends Enumeration {
     type Priority = Value
-    val LOW, MEDIUM, HIGH = Value
+    val LOWEST, LOW, MEDIUM, HIGH, HIGHEST = Value
 
     def priorityResolver(priorities: Priority*): Priority = {
       val lowestPriority = priorities.minBy(priority => priority.id)
@@ -28,7 +28,7 @@ object DraftingStratagem {
 
   object Abilities extends Enumeration {
     type Abilities = Value
-    val BREAKTHROUGH, CHARGE, DRAIN, GUARD, LETHAL, WARD = Value
+    val BREAKTHROUGH, CHARGE, DRAIN, GUARD, LETHAL, WARD, NONE = Value
   }
 
   case class CardTypeDistribution(evaluationCriteriaMap: CardEvaluationCriteriaMap)
@@ -45,14 +45,14 @@ object DraftingStratagem {
     CardEvaluationCriteriaMap(
       Map(
         CardCost.ZERO.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
-        CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
-        CardCost.TWO.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 10),
-        CardCost.THREE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 10),
-        CardCost.FOUR.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
+        CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 5),
+        CardCost.TWO.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
+        CardCost.THREE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
+        CardCost.FOUR.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
         CardCost.FIVE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardCost.SIX.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardCost.SEVEN.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardCost.EIGHT_AND_UP.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 2)
+        CardCost.SIX.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        CardCost.SEVEN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        CardCost.EIGHT_AND_UP.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 1)
       )
     )
   )
@@ -72,10 +72,10 @@ object DraftingStratagem {
   val MaxCreaturesDistribution = CardTypeDistribution(
     CardEvaluationCriteriaMap(
       Map(
-        CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 30),
-        CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0)
+        CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 30),
+        CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0)
       )
     )
   )
@@ -83,10 +83,10 @@ object DraftingStratagem {
   val HeavyCreaturesWithFewGreenDistribution = CardTypeDistribution(
     CardEvaluationCriteriaMap(
       Map(
-        CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 25),
+        CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 25),
         CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
-        CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
+        CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
       )
     )
   )
@@ -94,12 +94,13 @@ object DraftingStratagem {
   val ModerateGuardFocusDistribution = CardAbilityDistribution(
     CardEvaluationCriteriaMap(
       Map(
-        Abilities.BREAKTHROUGH.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        Abilities.CHARGE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        Abilities.DRAIN.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
+        Abilities.BREAKTHROUGH.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        Abilities.CHARGE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        Abilities.DRAIN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
         Abilities.GUARD.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 10),
-        Abilities.LETHAL.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-        Abilities.WARD.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0)
+        Abilities.LETHAL.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        Abilities.WARD.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+        Abilities.NONE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0)
       )
     )
   )
@@ -125,27 +126,46 @@ class CardDrafter(costDistribution: CardCostDistribution,
     typeDistribution.evaluationCriteriaMap.getPriorityAsInt(j) +
     abilityDistribution.evaluationCriteriaMap.getPriorityAsInt(k)
 
-  for {
-    i <- 0 until manaBuckets
-    j <- 0 until cardTypeBuckets
-    k <- 0 until abilityBuckets
-  } Console.err.println(s"scoreMatrix($i)($j)($k) => ${scoreMatrix(i)(j)(k)}")
+//  for {
+//    i <- 0 until manaBuckets
+//    j <- 0 until cardTypeBuckets
+//    k <- 0 until abilityBuckets
+//  } Console.err.println(s"scoreMatrix($i)($j)($k) => ${scoreMatrix(i)(j)(k)}")
 
   def chooseCard(choices: Card*): Card = {
     choices.maxBy(card => scoreChoice(card))
   }
 
-  private def scoreChoice(card: Card): Int = {
-    card.abilities.abilities.foldLeft(0) { (acc, char) =>
-      if (char.equals('-')) {
-        acc
-      } else {
-        val manaCostIndex = Math.min(card.cost, manaBuckets - 1)  // -1 to offset 0 cost mana cards
-        val abilityIndex = card.abilities.abilities.indexOf(char)
+  private def getManaCostIndexForCard(card: Card): Int =
+    Math.min(card.cost, manaBuckets - 1)  // -1 to offset 0 cost mana cards
 
-        acc + scoreMatrix(manaCostIndex)(card.cardtype)(abilityIndex)
+  private def scoreChoice(card: Card): Int = {
+    if (card.abilities.hasAbilities) {
+      getBestScoreForAbilities(card)
+    } else {
+      val score = scoreMatrix(getManaCostIndexForCard(card))(card.cardtype)(Abilities.NONE.id)
+      Console.err.println(s"Score [$score] for card $card")
+      score
+    }
+  }
+
+  private def getBestScoreForAbilities(card: Card): Int = {
+    var maxScore = 0
+
+    card.abilities.abilities.foreach { char =>
+      if (!char.equals('-')) {
+        val abilityIndex = card.abilities.abilities.indexOf(char)
+        val score = scoreMatrix(getManaCostIndexForCard(card))(card.cardtype)(abilityIndex)
+        Console.err.println(s"Score [$score] for card $card")
+
+        if (score > maxScore) {
+          Console.err.println(s"setting new max score to $score")
+          maxScore = score
+        }
       }
     }
+
+    maxScore
   }
 
   private def addCardToDeck(card: Card):Unit = deck += card

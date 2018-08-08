@@ -13,6 +13,8 @@ case class CardAbilities(abilities: String) {
   // attack enemy creatures. If their attack damage is greater than the defending creature's defense,
   // the excess damage is dealt to the opponent.
   def hasBreakthrough: Boolean = abilities.toUpperCase().contains('B')
+
+  def hasAbilities: Boolean = abilities != "------"
 }
 
 object Card {
