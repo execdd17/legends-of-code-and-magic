@@ -56,18 +56,22 @@ object DraftingStratagem {
       )
     )
   )
-//
-//  val titanCardCostDistribution = CardCostDistribution(
-//    zero = CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-//    one = CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-//    two = CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-//    three = CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-//    four = CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0),
-//    five = CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
-//    six = CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 10),
-//    seven = CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 10),
-//    eightAndAbove = CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 10)
-//  )
+
+  val TitanCardCostDistribution = CardCostDistribution(
+    CardEvaluationCriteriaMap(
+      Map(
+        CardCost.ZERO.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 5),
+        CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 5),
+        CardCost.TWO.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 10),
+        CardCost.THREE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 10),
+        CardCost.FOUR.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
+        CardCost.FIVE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 0),
+        CardCost.SIX.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 0),
+        CardCost.SEVEN.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 0),
+        CardCost.EIGHT_AND_UP.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 1)
+      )
+    )
+  )
 
   val MaxCreaturesDistribution = CardTypeDistribution(
     CardEvaluationCriteriaMap(
@@ -80,11 +84,11 @@ object DraftingStratagem {
     )
   )
 
-  val HeavyCreaturesWithFewGreenDistribution = CardTypeDistribution(
+  val HeavyCreaturesWithBuffsDistribution = CardTypeDistribution(
     CardEvaluationCriteriaMap(
       Map(
         CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 25),
-        CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
+        CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
         CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
         CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
       )

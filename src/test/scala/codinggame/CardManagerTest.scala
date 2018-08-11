@@ -50,43 +50,43 @@ class CardManagerTest
   "A CardManager" should "properly initialize" in {
     val cardManager = new CardManager(List(cardInMyHand1))
     cardManager.cardsInMyHand.size shouldBe 1
-    cardManager.mySummonedCards.size shouldBe 0
+    cardManager.mySummonedCreatures.size shouldBe 0
     cardManager.summonedEnemyCards.size shouldBe 0
   }
 
   it should "select the highest card to summon" in {
     val cardManager = new CardManager(List(cardInMyHand1,cardInMyHand2,cardInMyHand3))
-    val actions = cardManager.getActionsForTurn(currentMana = 4)
+    val actions = cardManager.getActionsForTurn(totalMana = 4)
     actions shouldEqual s"SUMMON ${cardInMyHand2.instanceid}"
   }
 
   it should "select the highest cards to summon, when able" in {
     val cardManager = new CardManager(List(cardInMyHand1,cardInMyHand2))
-    val actions = cardManager.getActionsForTurn(currentMana = 7)
+    val actions = cardManager.getActionsForTurn(totalMana = 7)
     actions shouldEqual s"SUMMON ${cardInMyHand2.instanceid};SUMMON ${cardInMyHand1.instanceid}"
   }
 
   it should "prioritize attacking enemy guard summons" in {
     val cardManager = new CardManager(List(cardOnMySide1, cardOnTheirSideWithGuard))
-    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    val actions = cardManager.getActionsForTurn(totalMana = 3)
     actions shouldEqual s"ATTACK ${cardOnMySide1.instanceid} ${cardOnTheirSideWithGuard.instanceid}"
   }
 
   it should "attack the face when no enemy guard summons are in play" in {
     val cardManager = new CardManager(List(cardOnMySide1))
-    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    val actions = cardManager.getActionsForTurn(totalMana = 3)
     actions shouldEqual s"ATTACK ${cardOnMySide1.instanceid} -1"
   }
 
   it should "utilize a summon immediately that has the Charge ability" in {
     val cardManager = new CardManager(List(cardInMyHandWithCharge))
-    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    val actions = cardManager.getActionsForTurn(totalMana = 3)
     actions shouldEqual s"SUMMON ${cardInMyHandWithCharge.instanceid};ATTACK ${cardInMyHandWithCharge.instanceid} -1"
   }
 
   it should "continue to attack the face after the taunt creature has been destroyed" in {
     val cardManager = new CardManager(List(cardOnMySide1, cardOnMySide2, cardOnTheirSideWithGuard))
-    val actions = cardManager.getActionsForTurn(currentMana = 3)
+    val actions = cardManager.getActionsForTurn(totalMana = 3)
     actions shouldEqual s"ATTACK ${cardOnMySide1.instanceid} ${cardOnTheirSideWithGuard.instanceid};ATTACK ${cardOnMySide2.instanceid} -1"
   }
 }

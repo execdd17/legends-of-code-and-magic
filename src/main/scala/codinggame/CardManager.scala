@@ -1,6 +1,25 @@
 package codinggame
 
+import codinggame.DraftingStratagem.CardType
+
+import scala.Predef.augmentString
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+
+trait Action {
+  def getActionName: String
+  def combineActions(actions:Action)
+}
+
+//trait TargetedAction extends Action {
+//  def getTargetId: String
+//}
+//
+//trait
+//
+//object PassAction extends Action {
+//  override def getActionName: String = "PASS"
+//}
 
 case class CardAbilities(abilities: String) {
   // Charge: Creatures with Charge can attack the turn they are summoned.
@@ -8,6 +27,12 @@ case class CardAbilities(abilities: String) {
 
   // Guard: Enemy creatures must attack creatures with Guard first.
   def hasGuard: Boolean = abilities.toUpperCase().contains('G')
+
+  def hasLethal: Boolean = abilities.toUpperCase().contains('L')
+
+  def hasDrain: Boolean = abilities.toUpperCase().contains('D')
+
+  def hasWard: Boolean = abilities.toUpperCase().contains('W')
 
   // Breakthrough: Creatures with Breakthrough can deal extra damage to the opponent when they
   // attack enemy creatures. If their attack damage is greater than the defending creature's defense,
@@ -50,67 +75,124 @@ object CardManager {
     s"SUMMON ${card.instanceid}"
   }
 
+  def compileUseItemOnCreature(item: Card, creature: Card): String =
+    s"USE ${item.instanceid} ${creature.instanceid}"
+
   def compilePassAction: String = "PASS"
 }
 
 class CardManager(cards: List[Card]) {
   val summonedEnemyCards:List[Card] = cards.filter(card => card.onEnemySideOfBoard)
   val cardsInMyHand:List[Card] = cards.filter(card => card.inMyHand)
-  val mySummonedCards:List[Card] = cards.filter(card => card.onMySideOfBoard)
-  val mySummonsReadyToCharge:ListBuffer[Card] = ListBuffer.empty[Card]
+  val MaxSummonedCards = 6
 
-  def getActionsForTurn(currentMana: Int): String = {
-    val summoningActions = getSummoningActionsForTurn(currentMana)
+  // this will change when creatures with 'charge' are played
+  val mySummonedCreatures:ListBuffer[Card] = cards.filter(card => card.onMySideOfBoard).to[ListBuffer]
+
+  // TODO: right now using items or summoning is an either or proposition, with summoning taking priority
+  // Both items and summoning can not assume they have full access to th player's mana
+  def getActionsForTurn(totalMana: Int): String = {
+    var currentMana = totalMana
+
+    val cardsToSummon = getCardsToSummonThisTurn(totalMana, MaxSummonedCards - mySummonedCreatures.length)
+    currentMana -= cardsToSummon.map(card => card.cost).sum
+    val summoningActions = cardsToSummon.map(card =>
+      CardManager.compileSummonAction(card)
+    ).mkString(";")
+
     val attackActions = getAttackActionsForTurn
+    val itemActions = getItemActionsForTurn(currentMana)
+
     Console.err.println(s"summoning actions: $summoningActions")
     Console.err.println(s"attack actions: $attackActions")
+    Console.err.println(s"item actions: $itemActions")
 
-    if (summoningActions.isEmpty && attackActions.isEmpty) {
+    if (cardsToSummon.isEmpty && itemActions.nonEmpty && attackActions.isEmpty) {
       CardManager.compilePassAction
     } else {
-      List(summoningActions, attackActions).filter(_.nonEmpty).mkString(";")
+      List(summoningActions, itemActions, attackActions).filter(_.nonEmpty).mkString(";")
     }
   }
 
+  // TODO: support more than green cards
+  private def getItemActionsForTurn(totalMana: Int): String = {
+    if (mySummonedCreatures.isEmpty) {
+      Console.err.println("Can't use green items because you don't have any summoned creatures")
+      return ""
+    }
+
+    val greenItemCards = cardsInMyHand.filter(card => card.cardtype == CardType.GREEN.id)
+    val mostExpensiveCardsICanAfford = getMostExpensiveCardsICanAfford(totalMana, greenItemCards)
+    val creatureToBuff = mySummonedCreatures.sortBy(card => card.cost).last
+
+    mostExpensiveCardsICanAfford.map(item =>
+      CardManager.compileUseItemOnCreature(item, creatureToBuff)
+    ).mkString(";")
+  }
+
   private def getAttackActionsForTurn: String = {
-    if (mySummonedCards.isEmpty && mySummonsReadyToCharge.isEmpty) {
+    if (mySummonedCreatures.isEmpty) {
       Console.err.println("I have no creatures able to attack right now")
       return ""
     }
 
-    val allAvailableCards = mySummonedCards ::: mySummonsReadyToCharge.toList
-    val enemyGuardCards = getEnemyGuardCards
+    val strongestFirstCreatureCounters = mySummonedCreatures.clone().sortBy(card => -card.attack)
+    val counterMapping = mutable.Map.empty[Card, ListBuffer[Card]]
 
-    // TODO: handle multiple enemy guard cards on their side
-    if (enemyGuardCards.nonEmpty) {
-      val (guardKillers, weaklings) = allAvailableCards.partition(_.attack >= enemyGuardCards.head.defense)
-      if (guardKillers.isEmpty) {
-        // have the weaklings group up to hopefully kill guard
-        weaklings.map(card => CardManager.compileCreatureToCreatureAttack(card, enemyGuardCards.head)).mkString(";")
-      } else {
-        // take the first creature who can kill the guard, and use everyone else to attack the face
-        List(
-          List(CardManager.compileCreatureToCreatureAttack(guardKillers.head, enemyGuardCards.head)),
-          guardKillers.tail.map(card => CardManager.compileCreatureToFaceAttack(card)),
-          weaklings.map(card => CardManager.compileCreatureToFaceAttack(card))
-        ).flatten.mkString(";")
+    getEnemyGuardCards.foreach { enemyCreature =>
+      counterMapping.put(enemyCreature, ListBuffer.empty[Card])
+      var currentDefense = enemyCreature.defense
+
+      while (currentDefense > 0 && strongestFirstCreatureCounters.nonEmpty) {
+        val myCounter = strongestFirstCreatureCounters.head
+        counterMapping(enemyCreature) += myCounter
+        currentDefense -= myCounter.attack
+        strongestFirstCreatureCounters -= myCounter
       }
+
+    }
+
+    if (counterMapping.nonEmpty) {
+      Console.err.println(s"MAPPING! $counterMapping")
+
+      val tauntCounters = counterMapping.map {
+        case (enemyCard, counterCards) =>
+          counterCards.map(counterCard =>
+            CardManager.compileCreatureToCreatureAttack(counterCard, enemyCard)
+          ).mkString(";")
+      }.mkString(";")
+
+      val leftoverFace = strongestFirstCreatureCounters.map(card =>
+        CardManager.compileCreatureToFaceAttack(card)
+      ).mkString(";")
+      Console.err.println(s"FACE! $leftoverFace")
+
+      List(tauntCounters, leftoverFace).filter(_.nonEmpty).mkString(";")
     } else {
-      allAvailableCards.map(card => CardManager.compileCreatureToFaceAttack(card)).mkString(";")
+      mySummonedCreatures.map(card => CardManager.compileCreatureToFaceAttack(card)).mkString(";")
     }
   }
 
-  private def getSummoningActionsForTurn(currentMana: Int): String = {
-    val cardsToSummon = getMostExpensiveCardsICanAfford(currentMana)
-    mySummonsReadyToCharge ++= cardsToSummon.filter(_.abilities.hasCharge)
-    cardsToSummon.map(card => CardManager.compileSummonAction(card)).mkString(";")
+  private def getCardsToSummonThisTurn(currentMana: Int, spaceRemainingOnBoard: Int): List[Card] = {
+    val creaturesInMyHand = cardsInMyHand.filter(card => card.cardtype == CardType.CREATURE.id)
+    val sortedAvailableCreatures = getMostExpensiveCardsICanAfford(currentMana, creaturesInMyHand)
+
+    var currentSpaceRemaining = spaceRemainingOnBoard
+    val creaturesThatWillFit = sortedAvailableCreatures.takeWhile { _ =>
+      val isSpaceAvailable = currentSpaceRemaining > 0
+      currentSpaceRemaining -= 1
+      isSpaceAvailable
+    }
+
+    mySummonedCreatures ++= creaturesThatWillFit.filter(_.abilities.hasCharge)
+    creaturesThatWillFit
   }
 
   private def getEnemyGuardCards: List[Card] = summonedEnemyCards.filter(card => card.abilities.hasGuard)
 
   // TODO: Convert this to be based on mana efficiency. E.g. favor using as much mana as possible per turn
-  private def getMostExpensiveCardsICanAfford(totalMana: Int): List[Card] = {
-    val highestToLowestCostCards = cardsInMyHand.sortBy(- _.cost)
+  private def getMostExpensiveCardsICanAfford(totalMana: Int, cardChoices: List[Card]): List[Card] = {
+    val highestToLowestCostCards = cardChoices.sortBy(- _.cost)
     var currentMana = totalMana
     val cardsToKeep = ListBuffer.empty[Card]
 
