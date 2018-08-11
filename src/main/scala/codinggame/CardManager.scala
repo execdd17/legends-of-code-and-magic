@@ -2,7 +2,6 @@ package codinggame
 
 import codinggame.DraftingStratagem.CardType
 
-import scala.Predef.augmentString
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -22,6 +21,7 @@ trait Action {
 //}
 
 case class CardAbilities(abilities: String) {
+
   // Charge: Creatures with Charge can attack the turn they are summoned.
   def hasCharge: Boolean = abilities.toUpperCase().contains('C')
 
