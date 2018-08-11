@@ -33,6 +33,10 @@ object DraftingStratagem {
     val BREAKTHROUGH, CHARGE, DRAIN, GUARD, LETHAL, WARD, NONE = Value
   }
 
+  case class Strategy(typeDistribution: CardTypeDistribution,
+                      costDistribution: CardCostDistribution,
+                      abilityDistribution: CardAbilityDistribution)
+
   case class CardTypeDistribution(map: Map[Int, CardEvaluationCriteria])
   case class CardCostDistribution(map: Map[Int, CardEvaluationCriteria])
   case class CardAbilityDistribution(map: Map[Int, CardEvaluationCriteria])
@@ -43,21 +47,7 @@ object DraftingStratagem {
 
   case class CardEvaluationCriteria(priority: Priority, maxNum: Int)
 
-  val ZooCardCostDistribution = CardCostDistribution(
-    Map(
-      CardCost.ZERO.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 5),
-      CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
-      CardCost.TWO.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
-      CardCost.THREE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
-      CardCost.FOUR.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
-      CardCost.FIVE.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 0),
-      CardCost.SIX.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      CardCost.SEVEN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      CardCost.EIGHT_AND_UP.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 1)
-    )
-  )
-
-  val TitanCardCostDistribution = CardCostDistribution(
+  private val TitanCardCostDistribution = CardCostDistribution(
     Map(
       CardCost.ZERO.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 5),
       CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 5),
@@ -71,7 +61,7 @@ object DraftingStratagem {
     )
   )
 
-  val MaxCreaturesDistribution = CardTypeDistribution(
+  private val MaxCreaturesDistribution = CardTypeDistribution(
     Map(
       CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 30),
       CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
@@ -80,7 +70,7 @@ object DraftingStratagem {
     )
   )
 
-  val HeavyCreaturesWithBuffsDistribution = CardTypeDistribution(
+  private val HeavyCreaturesWithGreensAndBluesDistribution = CardTypeDistribution(
     Map(
       CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 25),
       CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 5),
@@ -89,19 +79,19 @@ object DraftingStratagem {
     )
   )
 
-  val ModerateGuardFocusDistribution = CardAbilityDistribution(
+  private val ModerateChargeFocusDistribution = CardAbilityDistribution(
     Map(
       Ability.BREAKTHROUGH.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      Ability.CHARGE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+      Ability.CHARGE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 0),
       Ability.DRAIN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      Ability.GUARD.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 10),
+      Ability.GUARD.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 10),
       Ability.LETHAL.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
       Ability.WARD.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      Ability.NONE.id -> CardEvaluationCriteria(priority = Priority.LOW, maxNum = 0)
+      Ability.NONE.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 0)
     )
   )
 
-  val HeavyGuardAndBreakthroughDistribution = CardAbilityDistribution(
+  private val HeavyGuardAndBreakthroughDistribution = CardAbilityDistribution(
     Map(
       Ability.BREAKTHROUGH.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 0),
       Ability.CHARGE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
@@ -112,11 +102,26 @@ object DraftingStratagem {
       Ability.NONE.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 0)
     )
   )
+
+  private val ZooCardCostDistribution = CardCostDistribution(
+    Map(
+      CardCost.ZERO.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 2),
+      CardCost.ONE.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
+      CardCost.TWO.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
+      CardCost.THREE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 10),
+      CardCost.FOUR.id -> CardEvaluationCriteria(priority = Priority.HIGH, maxNum = 5),
+      CardCost.FIVE.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 0),
+      CardCost.SIX.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+      CardCost.SEVEN.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+      CardCost.EIGHT_AND_UP.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 1)
+    )
+  )
+
+  val ZooStrategy = Strategy(HeavyCreaturesWithGreensAndBluesDistribution, ZooCardCostDistribution,
+    ModerateChargeFocusDistribution)
 }
 
-class CardDrafter(costDistribution: CardCostDistribution,
-                  typeDistribution: CardTypeDistribution,
-                  abilityDistribution: CardAbilityDistribution) {
+class CardDrafter(strategy: Strategy) {
 
   val deck: ListBuffer[Card] = ListBuffer.empty[Card]
 
@@ -130,9 +135,9 @@ class CardDrafter(costDistribution: CardCostDistribution,
     i <- 0 until manaBuckets
     j <- 0 until cardTypeBuckets
     k <- 0 until abilityBuckets
-  } scoreMatrix(i)(j)(k) = costDistribution.map(i).priority.id +
-    typeDistribution.map(j).priority.id +
-    abilityDistribution.map(k).priority.id
+  } scoreMatrix(i)(j)(k) = strategy.costDistribution.map(i).priority.id +
+    strategy.typeDistribution.map(j).priority.id +
+    strategy.abilityDistribution.map(k).priority.id
 
   //  for {
   //    i <- 0 until manaBuckets
@@ -151,7 +156,7 @@ class CardDrafter(costDistribution: CardCostDistribution,
     val choice = choices.maxBy(card => scoreChoice(card))
     Console.err.println(s"Evaluating $choice")
 
-    if (iteration == 3 || choiceIsValid(choice, costDistribution)) {
+    if (iteration == 3 || choiceIsValid(choice, strategy.costDistribution)) {
       choice
     } else {
       chooseHelper(iteration = iteration + 1, choices.filter(!_.equals(choice)))
@@ -204,6 +209,4 @@ class CardDrafter(costDistribution: CardCostDistribution,
 
     maxScore
   }
-
-  private def addCardToDeck(card: Card): Unit = deck += card
 }

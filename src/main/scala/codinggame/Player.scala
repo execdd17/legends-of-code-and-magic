@@ -1,4 +1,4 @@
-package codinggame
+import codinggame._
 
 import scala.collection.mutable.ListBuffer
 
@@ -7,6 +7,8 @@ import scala.collection.mutable.ListBuffer
   * the standard input according to the problem statement.
   **/
 object Player extends App {
+
+  val cardDrafter = new CardDrafter(DraftingStratagem.ZooStrategy)
 
   // game loop
   while(true) {
@@ -36,7 +38,25 @@ object Player extends App {
 
     // DRAFT PHASE
     if (playermana == 0) {
-      println("PASS")
+      val choice = cardDrafter.chooseCard(cards: _*)
+
+      if (choice == cards(0))
+        println("PICK 0")
+      else if (choice == cards(1))
+        println("PICK 1")
+      else if (choice == cards(2))
+        println("PICK 2")
+      else
+        println("PASS")
+
+      // Console.err.println("I would have choose " + choice)
+
+      // val creatureCardIndex = cards.indexWhere(card => card.cardtype == 0)
+      // if (creatureCardIndex >= 0) {
+      //     println("PICK " + creatureCardIndex)
+      // } else {
+      //     println("PASS")
+      // }
     } else {
       val cardManager = new CardManager(cards.toList)
       val actions = cardManager.getActionsForTurn(playermana)
