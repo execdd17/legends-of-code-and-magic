@@ -89,8 +89,6 @@ class CardManager(cards: List[Card]) {
   // this will change when creatures with 'charge' are played
   val mySummonedCreatures:ListBuffer[Card] = cards.filter(card => card.onMySideOfBoard).to[ListBuffer]
 
-  // TODO: right now using items or summoning is an either or proposition, with summoning taking priority
-  // Both items and summoning can not assume they have full access to th player's mana
   def getActionsForTurn(totalMana: Int): String = {
     var currentMana = totalMana
 
@@ -100,8 +98,8 @@ class CardManager(cards: List[Card]) {
       CardManager.compileSummonAction(card)
     ).mkString(";")
 
-    val attackActions = getAttackActionsForTurn
     val itemActions = getItemActionsForTurn(currentMana)
+    val attackActions = getAttackActionsForTurn
 
     Console.err.println(s"summoning actions: $summoningActions")
     Console.err.println(s"attack actions: $attackActions")
@@ -152,7 +150,36 @@ class CardManager(cards: List[Card]) {
 
     }
 
-    if (counterMapping.nonEmpty) {
+    if (counterMapping.isEmpty) {
+      val myWeakestToStrongestCreatures = mySummonedCreatures.sortBy(_.attack)
+      val strongestToWeakestEnemies = summonedEnemyCards.sortBy(-_.attack)
+
+      val enemyCreatureMyToCounter = strongestToWeakestEnemies.foldLeft(Map.empty[Card,Card]) { (map, enemyCreature) =>
+        val myKillerOption = myWeakestToStrongestCreatures.find(myCreature =>
+          enemyCreature.defense - myCreature.attack <= 0 && myCreature.defense - enemyCreature.attack > 0
+        )
+
+        if (myKillerOption.nonEmpty) {
+          map + (enemyCreature -> myKillerOption.get)
+        } else {
+          map
+        }
+      }
+
+      val myUnusedCards = mySummonedCreatures.filter(creature =>
+        enemyCreatureMyToCounter.values.toList.indexOf(creature) == -1
+      )
+
+      Console.err.println(s"My ez kills $enemyCreatureMyToCounter")
+      Console.err.println(s"My unused creatures $myUnusedCards")
+
+      val counterActions = enemyCreatureMyToCounter.map {
+        case (enemyCreature, myCreature) => CardManager.compileCreatureToCreatureAttack(myCreature, enemyCreature)
+      }.mkString(";")
+
+      val faceActions = mySummonedCreatures.map(card => CardManager.compileCreatureToFaceAttack(card)).mkString(";")
+      List(counterActions, faceActions).filter(_.nonEmpty).mkString(";")
+    } else {
       Console.err.println(s"MAPPING! $counterMapping")
 
       val tauntCounters = counterMapping.map {
@@ -168,8 +195,6 @@ class CardManager(cards: List[Card]) {
       Console.err.println(s"FACE! $leftoverFace")
 
       List(tauntCounters, leftoverFace).filter(_.nonEmpty).mkString(";")
-    } else {
-      mySummonedCreatures.map(card => CardManager.compileCreatureToFaceAttack(card)).mkString(";")
     }
   }
 
