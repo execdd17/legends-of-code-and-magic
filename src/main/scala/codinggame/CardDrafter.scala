@@ -85,7 +85,7 @@ object DraftingStratagem {
       CardType.CREATURE.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 25),
       CardType.GREEN.id -> CardEvaluationCriteria(priority = Priority.HIGHEST, maxNum = 5),
       CardType.RED.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
-      CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.LOWEST, maxNum = 0),
+      CardType.BLUE.id -> CardEvaluationCriteria(priority = Priority.MEDIUM, maxNum = 0),
     )
   )
 

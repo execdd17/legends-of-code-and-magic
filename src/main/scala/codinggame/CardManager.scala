@@ -78,6 +78,9 @@ object CardManager {
   def compileUseItemOnCreature(item: Card, creature: Card): String =
     s"USE ${item.instanceid} ${creature.instanceid}"
 
+  def compileUseItem(item: Card): String =
+    s"USE ${item.instanceid} -1"
+
   def compilePassAction: String = "PASS"
 }
 
@@ -98,7 +101,7 @@ class CardManager(cards: List[Card]) {
       CardManager.compileSummonAction(card)
     ).mkString(";")
 
-    val itemActions = getItemActionsForTurn(currentMana)
+    val itemActions = getItemActionsForTurn(currentMana, newlySummonedCreatures = cardsToSummon)
     val attackActions = getAttackActionsForTurn
 
     Console.err.println(s"summoning actions: $summoningActions")
@@ -112,19 +115,27 @@ class CardManager(cards: List[Card]) {
     }
   }
 
-  // TODO: support more than green cards
-  private def getItemActionsForTurn(totalMana: Int): String = {
-    if (mySummonedCreatures.isEmpty) {
+  private def getItemActionsForTurn(totalMana: Int, newlySummonedCreatures: List[Card]): String = {
+    val creaturesThatCanBeBuffed = mySummonedCreatures.toList ::: newlySummonedCreatures
+
+    if (creaturesThatCanBeBuffed.isEmpty) {
       Console.err.println("Can't use green items because you don't have any summoned creatures")
       return ""
     }
 
     val greenItemCards = cardsInMyHand.filter(card => card.cardtype == CardType.GREEN.id)
-    val mostExpensiveCardsICanAfford = getMostExpensiveCardsICanAfford(totalMana, greenItemCards)
-    val creatureToBuff = mySummonedCreatures.sortBy(card => card.cost).last
+    val blueItemCards = cardsInMyHand.filter(card => card.cardtype == CardType.BLUE.id)
+    val mostExpensiveCardsICanAfford = getMostExpensiveCardsICanAfford(totalMana, greenItemCards ::: blueItemCards)
+
+    // TODO: can we pick a better target to buff?
+    val creatureToBuff = creaturesThatCanBeBuffed.sortBy(card => card.cost).last
 
     mostExpensiveCardsICanAfford.map(item =>
-      CardManager.compileUseItemOnCreature(item, creatureToBuff)
+      if (item.cardtype == CardType.GREEN.id) {
+        CardManager.compileUseItemOnCreature(item, creatureToBuff)
+      } else if (item.cardtype == CardType.BLUE.id) {
+        CardManager.compileUseItem(item)
+      }
     ).mkString(";")
   }
 
